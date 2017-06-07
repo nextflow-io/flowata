@@ -1,0 +1,21 @@
+#!/bin/bash -e
+
+case "${1-}" in 
+    pull)
+        image="${2-}"
+        if [ -z $2 ]; then
+            echo "Please specify an image"
+            exit 1
+        fi
+        image_file=$(basename $image | sed 's/:/-/g;s/@/@sha256-/g')
+        echo "== Pull image $image"
+        sleep 3
+        touch $(pwd)/$image_file.img
+        echo "== DONE"
+        exit 0
+        ;;
+    *)
+        echo "usage 'singularity pull <image>'"
+        exit 1
+esac
+
