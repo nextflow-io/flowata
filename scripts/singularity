@@ -1,5 +1,7 @@
 #!/bin/bash -e
 
+SLEEP_TIME = 1
+
 case "${1-}" in 
     pull)
         image="${2-}"
@@ -9,7 +11,7 @@ case "${1-}" in
         fi
         image_file=$(basename $image | sed 's/:/-/g;s/@/@sha256-/g')
         echo "== Pull image $image"
-        sleep 3
+        sleep $SLEEP_TIME
         touch $(pwd)/$image_file.img
         echo "== DONE"
         exit 0
