@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-SLEEP_TIME = 1
+SLEEP_TIME=1
 
 case "${1-}" in 
     pull)
