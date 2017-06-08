@@ -1,5 +1,8 @@
 package nextflow.registry
 
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -7,9 +10,9 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class Registry {
 
-    private static final File DEFAULT_DIR = new File(new File(".").getCanonicalPath(), "registry")
+    private static final Path DEFAULT_DIR = Paths.get(Paths.get(".").toRealPath().toString(), "registry")
 
-    File registryPath
+    Path registryPath
     String pullCommand
     ConcurrentHashMap<String, Image> imageStatus
 
@@ -18,10 +21,10 @@ class Registry {
     }
 
     Registry(String path) {
-        this(new File(path))
+        this(Paths.get(path))
     }
 
-    Registry(File path) {
+    Registry(Path path) {
         this.registryPath = path
         this.imageStatus = new ConcurrentHashMap<String,Image>()
         this.pullCommand = "singularity"
@@ -41,8 +44,8 @@ class Registry {
     }
 
     def pullImage(Image image) {
-        if (!this.registryPath.exists() ||  !this.registryPath.directory) {
-            this.registryPath.mkdirs()
+        if (!Files.exists(this.registryPath) || !Files.isDirectory(this.registryPath)) {
+            Files.createDirectory(this.registryPath)
         }
         def builder = new ProcessBuilder()
         .command(this.pullCommand, 'pull', image.toUrl())

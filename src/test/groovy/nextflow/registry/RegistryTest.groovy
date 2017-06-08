@@ -2,6 +2,9 @@ package nextflow.registry
 
 import spock.lang.Specification
 
+import java.nio.file.Path
+import java.nio.file.Paths
+
 /**
  * @author Emilio Palumbo <emiliopalumbo@gmail.com>
  */
@@ -10,19 +13,19 @@ class RegistryTest extends Specification {
 
         when:
         def reg = new Registry()
-        def cwd = new File('.').getCanonicalPath()
+        def cwd = Paths.get('.').toRealPath()
 
         then:
-        reg.registryPath == new File(cwd, 'registry')
+        reg.registryPath == Paths.get(cwd.toString(), 'registry')
 
         when:
         reg = new Registry("/path/to/file")
 
         then:
-        reg.registryPath == new File("/path/to/file")
+        reg.registryPath == Paths.get("/path/to/file")
 
         when:
-        def path = new File("/path/to/file")
+        def path = Paths.get("/path/to/file")
         reg = new Registry(path)
 
         then:
