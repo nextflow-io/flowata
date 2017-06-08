@@ -1,5 +1,7 @@
 package nextflow.registry
 
+import java.nio.file.Path
+
 /**
  * @author Emilio Palumbo <emiliopalumbo@gmail.com>
  */
@@ -10,7 +12,7 @@ class Image {
 
     final SUFFIX = ".img"
 
-    String proto, repo, name
+    String proto, repo, name, statusInfo
     Status status
 
     Image(String s) {

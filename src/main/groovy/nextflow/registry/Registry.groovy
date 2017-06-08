@@ -11,9 +11,10 @@ import java.util.concurrent.ConcurrentHashMap
 class Registry {
 
     private static final Path DEFAULT_DIR = Paths.get(Paths.get(".").toRealPath().toString(), "registry")
+    private static final Tuple DEFAULT_PULL_COMMAND = new Tuple("singularity", "pull")
 
     Path registryPath
-    String pullCommand
+    Tuple pullCommand
     ConcurrentHashMap<String, Image> imageStatus
 
     Registry() {
@@ -27,39 +28,70 @@ class Registry {
     Registry(Path path) {
         this.registryPath = path
         this.imageStatus = new ConcurrentHashMap<String,Image>()
-        this.pullCommand = "singularity"
+        this.pullCommand = DEFAULT_PULL_COMMAND
     }
 
-    def Image makeImage(String s) {
-        return new Image(s)
+    def Image getImage(String s) {
+        if (!imageStatus.containsKey(s)) {
+            imageStatus[s] = new Image(s)
+        }
+        def img = imageStatus[s]
+        if (Files.exists(getImagePath(img))) {
+            img.status = Image.Status.CACHED
+        }
+        return imageStatus[s]
+    }
+
+    def Path getImagePath(Image image) {
+        return Paths.get(registryPath.toString(), image.toString())
     }
 
     def boolean hasImage(String image) {
-        return imageStatus.containsKey(image) && new File(registryPath, makeImage(image).toString()).exists()
+        def img = getImage(image)
+        if (img.status == Image.Status.CACHED) {
+            return true
+        }
+        return false
     }
 
     def pullImage(String s) {
-        def image = this.makeImage(s)
+        def image = getImage(s)
         this.pullImage(image)
     }
 
     def pullImage(Image image) {
-        if (!Files.exists(this.registryPath) || !Files.isDirectory(this.registryPath)) {
-            Files.createDirectory(this.registryPath)
+        if (!Files.exists(registryPath) || !Files.isDirectory(registryPath)) {
+            Files.createDirectory(registryPath)
         }
         def builder = new ProcessBuilder()
-        .command(this.pullCommand, 'pull', image.toUrl())
-        .redirectErrorStream(true)
-        .directory(this.registryPath)
+                .command(*pullCommand, image.toUrl())
+                .redirectErrorStream(true)
+                .directory(registryPath.toFile())
 
-        def process = builder.start()
-        process.inputStream.eachLine {println it}
-        process.waitFor()
-
-        if (process.exitValue()) {
-            throw new RuntimeException(process.text)
+        def process
+        try {
+            process = builder.start()
+        } catch (IOException e) {
+            image.status = Image.Status.ERROR
+            image.statusInfo = e.message
         }
 
-        return true
+        if (process) {
+            //process.inputStream.eachLine { println it }
+            process.waitFor()
+
+            image.statusInfo = process.text
+
+            if (process.exitValue()) {
+                image.status = Image.Status.ERROR
+            } else {
+                image.status = Image.Status.CACHED
+            }
+        }
+
+        imageStatus[image.toUrl()] = image
+
+        return (image.status == Image.Status.CACHED)
+
     }
 }

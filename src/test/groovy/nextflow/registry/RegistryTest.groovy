@@ -2,13 +2,21 @@ package nextflow.registry
 
 import spock.lang.Specification
 
-import java.nio.file.Path
+import java.nio.file.Files
 import java.nio.file.Paths
 
 /**
  * @author Emilio Palumbo <emiliopalumbo@gmail.com>
  */
 class RegistryTest extends Specification {
+
+    // Cleanyp registry folder
+    def setupSpec() {
+        ['registry/busybox.img', 'registry'].each {
+            Files.deleteIfExists(Paths.get(it))
+        }
+    }
+
     def "Create new Registry"() {
 
         when:
@@ -38,17 +46,17 @@ class RegistryTest extends Specification {
         def reg = new Registry()
 
         expect:
-        reg.makeImage("docker://nextflow/rnatoy") as String == "rnatoy.img"
-        reg.makeImage("docker://nextflow/rnatoy").proto == "docker"
-        reg.makeImage("shub://nextflow/rnatoy") as String == "rnatoy.img"
-        reg.makeImage("shub://nextflow/rnatoy").proto == "shub"
-        reg.makeImage("nextflow/rnatoy") as String == "rnatoy.img"
-        reg.makeImage("nextflow/rnatoy").repo == "nextflow"
-        reg.makeImage("nextflow/rnatoy:1.3") as String == "rnatoy-1.3.img"
-        reg.makeImage("nextflow/rnatoy@c4fbc65") as String == "rnatoy@sha256-c4fbc65.img"
-        reg.makeImage("/path/to/rnatoy@sha256-c4fbc65.img") as String == "/path/to/rnatoy@sha256-c4fbc65.img"
-        reg.makeImage("/path/to/rnatoy@sha256-c4fbc65.img").repo == null
-        reg.makeImage("nextflow/rnatoy").proto == null
+        reg.getImage("docker://nextflow/rnatoy") as String == "rnatoy.img"
+        reg.getImage("docker://nextflow/rnatoy").proto == "docker"
+        reg.getImage("shub://nextflow/rnatoy") as String == "rnatoy.img"
+        reg.getImage("shub://nextflow/rnatoy").proto == "shub"
+        reg.getImage("nextflow/rnatoy") as String == "rnatoy.img"
+        reg.getImage("nextflow/rnatoy").repo == "nextflow"
+        reg.getImage("nextflow/rnatoy:1.3") as String == "rnatoy-1.3.img"
+        reg.getImage("nextflow/rnatoy@c4fbc65") as String == "rnatoy@sha256-c4fbc65.img"
+        reg.getImage("/path/to/rnatoy@sha256-c4fbc65.img") as String == "/path/to/rnatoy@sha256-c4fbc65.img"
+        reg.getImage("/path/to/rnatoy@sha256-c4fbc65.img").repo == null
+        reg.getImage("nextflow/rnatoy").proto == null
 
     }
 
@@ -58,25 +66,50 @@ class RegistryTest extends Specification {
         def reg = new Registry()
 
         then:
-        reg.makeImage("docker://nextflow/rnatoy").toUrl() == "docker://nextflow/rnatoy"
-        reg.makeImage("nextflow/rnatoy").toUrl() == "nextflow/rnatoy"
-        //reg.makeImage("/path/to/rnatoy@sha256-c4fbc65.img").toUrl() == "/path/to/rnatoy@sha256-c4fbc65.img"
+        reg.getImage("docker://nextflow/rnatoy").toUrl() == "docker://nextflow/rnatoy"
+        reg.getImage("nextflow/rnatoy").toUrl() == "nextflow/rnatoy"
+        //reg.getImage("/path/to/rnatoy@sha256-c4fbc65.img").toUrl() == "/path/to/rnatoy@sha256-c4fbc65.img"
+
+    }
+
+    def "Pull image"() {
+
+        when:
+        def reg = new Registry()
+
+        then:
+        !reg.pullImage('nextflow/rnatoy')
+        reg.getImage('nextflow/rnatoy').status == Image.Status.ERROR
+        reg.getImage('nextflow/rnatoy').statusInfo == 'Cannot run program "singularity" (in directory "/Users/emilio/workspace/sregistry/registry"): error=13, Permission denied'
+
+        when:
+        reg.pullCommand = new Tuple("../scripts/singularity")
+
+        then:
+        !reg.pullImage('library/busybox')
+        reg.getImage('library/busybox').status == Image.Status.ERROR
+        reg.getImage('library/busybox').statusInfo == 'usage \'singularity pull <image>\'\n'
+
+        when:
+        reg.pullCommand = new Tuple("../scripts/singularity", "pull")
+
+        then:
+        reg.pullImage('library/busybox')
+        reg.getImage('library/busybox').status == Image.Status.CACHED
+        reg.getImage('library/busybox').statusInfo == '== Pull image library/busybox\n== DONE\n'
 
     }
 
     def "Check image status"() {
 
-        given:
-        def image = new Registry().makeImage('nextflow/rnatoy')
 
         expect:
-        image.status == Image.Status.CREATED
+        image.status == status
 
-        when:
-        image.status = Image.Status.ERROR
-
-        then:
-        image.status == Image.Status.ERROR
+        where:
+        image                                      || status
+        new Registry().getImage('nextflow/rnatoy') || Image.Status.CREATED
+        new Registry().getImage('library/busybox') || Image.Status.CACHED
 
     }
 
@@ -86,18 +119,9 @@ class RegistryTest extends Specification {
         def reg = new Registry()
 
         then:
-        reg.hasImage('nextflow/rnatoy') == false
+        reg.hasImage('library/busybox')
+        !reg.hasImage('nextflow/rnatoy')
 
     }
 
-    def "Pull image"() {
-
-        when:
-        def reg = new Registry()
-        reg.pullCommand = "../scripts/singularity"
-
-        then:
-        reg.pullImage('library/busybox') == true
-
-    }
 }
