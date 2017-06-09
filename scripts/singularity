@@ -4,15 +4,15 @@ SLEEP_TIME=1
 
 case "${1-}" in 
     pull)
-        image="${2-}"
-        if [ -z $2 ]; then
+        image_file=$2
+        image="${3-}"
+        if [ -z $3 ]; then
             echo "Please specify an image"
             exit 1
         fi
-        image_file=$(basename $image | sed 's/:/-/g;s/@/@sha256-/g')
         echo "== Pull image $image"
         sleep $SLEEP_TIME
-        touch $(pwd)/$image_file.img
+        touch $(pwd)/$image_file
         echo "== DONE"
         exit 0
         ;;
