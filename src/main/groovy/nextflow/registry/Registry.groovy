@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap
 class Registry {
 
     private static final Path DEFAULT_DIR = Paths.get(Paths.get(".").toRealPath().toString(), "registry")
-    private static final Tuple DEFAULT_PULL_COMMAND = new Tuple("singularity", "pull")
+    private static final Tuple DEFAULT_PULL_COMMAND = new Tuple("singularity", "pull", "--name")
 
     Path registryPath
     Tuple pullCommand
@@ -33,17 +33,30 @@ class Registry {
 
     def Image getImage(String s) {
         if (!imageStatus.containsKey(s)) {
-            imageStatus[s] = new Image(s)
+            def image = Image.create(s)
+            if (image) {
+                imageStatus[s] = image
+            }
         }
         def img = imageStatus[s]
-        if (Files.exists(getImagePath(img))) {
+        if (img && Files.exists(getImagePath(img))) {
             img.status = Image.Status.CACHED
         }
         return imageStatus[s]
     }
 
     def Path getImagePath(Image image) {
-        return Paths.get(registryPath.toString(), image.toString())
+        if (image) {
+            if (image.name.startsWith('/')) {
+                return Paths.get(image.toString())
+            }
+            return registryPath.resolve(image.toString())
+        }
+        return null
+    }
+
+    def Path getImagePath(String s) {
+        getImagePath(getImage(s) as Image)
     }
 
     def boolean hasImage(String image) {
@@ -61,11 +74,12 @@ class Registry {
 
     def pullImage(Image image) {
         if (!Files.exists(registryPath) || !Files.isDirectory(registryPath)) {
-            Files.createDirectory(registryPath)
+            Files.createDirectories(registryPath)
         }
         def builder = new ProcessBuilder()
-                .command(*pullCommand, image.toUrl())
+                .command(*pullCommand, image.toString(), image.toUrl())
                 .redirectErrorStream(true)
+
                 .directory(registryPath.toFile())
 
         def process
@@ -74,6 +88,7 @@ class Registry {
         } catch (IOException e) {
             image.status = Image.Status.ERROR
             image.statusInfo = e.message
+            // log message
         }
 
         if (process) {
@@ -84,6 +99,7 @@ class Registry {
 
             if (process.exitValue()) {
                 image.status = Image.Status.ERROR
+                // log message
             } else {
                 image.status = Image.Status.CACHED
             }
